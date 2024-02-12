@@ -1,29 +1,63 @@
 from MycobotControl import MyCobotInterface
 from math import cos, sin, radians, sqrt, degrees, acos
 
+class BaseObject:
+    def point(self, pos):
+        pass
 
-class Move:
+    def k_coeff(self, pos):
+        pass
+
+    def render(self, mc_interface):
+        t = 0.01
+        stop = False
+
+        while t <= 1:
+
+            x, y = self.point(t)
+            k = self.k_coeff(t) # ~(0.00001 - 0.04)
+
+            if k > 0.002:
+                step = (1/k)/2500
+            else:
+                step = 0.2
+            t += step
+            mc_interface.draw_to(x, y, step)
+            if stop:
+                break
+            if t > 1:
+                t = 1
+                stop = True
+
+
+
+
+
+
+class Move(BaseObject):
     def __init__(self, x, y):
         self.x = x
         self.y = y
 
     def render(self, mc_interface: MyCobotInterface):
-        mc_interface.move_to(round(self.x), round(self.y))
+        mc_interface.move_to(self.x, self.y)
 
 
-class Line:
+class Line(BaseObject):
     def __init__(self, sp_x, sp_y, ep_x, ep_y):
         self.sp_x = sp_x
         self.sp_y = sp_y
         self.ep_x = ep_x
         self.ep_y = ep_y
 
-    def render(self, mc_interface: MyCobotInterface):
+    def render(self, mc_interface):
+        mc_interface.draw_to(self.ep_x, self.ep_y)
 
-        mc_interface.draw_to(round(self.ep_x), round(self.ep_y))
+    def k_coeff(self):
+        return 0
 
 
-class CubicCurve:
+class CubicCurve(BaseObject):
     def __init__(self, sp_x, sp_y, ep_x1, ep_y1, sp_x2, sp_y2, ep_x, ep_y):
         '''
         Cubic Curve defined by two lines ({sp_x;sp_y};{ep_x1;ep_y1}) and
@@ -46,19 +80,35 @@ class CubicCurve:
         self.ep_x = ep_x
         self.ep_y = ep_y
 
-    def render(self, mc_interface: MyCobotInterface):
+    def point(self, pos):
+        x = (((1 - pos) ** 3) * self.sp_x + 3 * ((1 - pos) ** 2) * pos * self.ep_x1 +
+             + 3 * (1 - pos) * (pos ** 2) * self.sp_x2 + pos ** 3 * self.ep_x)
+        y = (((1 - pos) ** 3) * self.sp_y + 3 * ((1 - pos) ** 2) * pos * self.ep_y1 +
+             + 3 * (1 - pos) * (pos ** 2) * self.sp_y2 + pos ** 3 * self.ep_y)
+        return x, y
+    def point_d(self, pos):
+        x = 3 * self.ep_x * pos ** 2 + 3 * self.sp_x2 * (2 * (1 - pos) * pos - pos ** 2) + 3 * self.ep_x1 * (
+                (1 - pos) ** 2 - 2 * (1 - pos) * pos) - 3 * self.sp_x * (1 - pos) ** 2
+        y = 3 * self.ep_y * pos ** 2 + 3 * self.sp_y2 * (2 * (1 - pos) * pos - pos ** 2) + 3 * self.ep_y1 * (
+                (1 - pos) ** 2 - 2 * (1 - pos) * pos) - 3 * self.sp_y * (1 - pos) ** 2
+        return x, y
 
-        for i in range(0, 21):
-            i = i / 20
-            x = (((1 - i) ** 3) * self.sp_x + 3 * ((1 - i) ** 2) * i * self.ep_x1 +
-                 + 3 * (1 - i) * (i ** 2) * self.sp_x2 + i ** 3 * self.ep_x)
-            y = (((1 - i) ** 3) * self.sp_y + 3 * ((1 - i) ** 2) * i * self.ep_y1 +
-                 + 3 * (1 - i) * (i ** 2) * self.sp_y2 + i ** 3 * self.ep_y)
+    def point_d2(self, pos):
+        x = 6 * self.ep_x * pos + 6 * self.sp_x * (1 - pos) + 3 * self.sp_x2 * (
+                    2 * (1 - 2 * pos) - 2 * pos) + 3 * self.ep_x1 * (-2 * (1 - pos) - 2 * (1 - 2 * pos))
+        y = 6 * self.ep_y * pos + 6 * self.sp_y * (1 - pos) + 3 * self.sp_y2 * (
+                    2 * (1 - 2 * pos) - 2 * pos) + 3 * self.ep_y1 * (-2 * (1 - pos) - 2 * (1 - 2 * pos))
+        return x, y
 
-            mc_interface.draw_to(round(x), round(y))
+    def k_coeff(self, pos):
+        x1, y1 = self.point_d(pos)
+        x2, y2 = self.point_d2(pos)
+        return sqrt((x1 * y2 - x2 * y1) ** 2) / abs((sqrt(x1 ** 2 + y1 ** 2)) ** 3)
 
 
-class QuadraticCurve:
+
+
+class QuadraticCurve(BaseObject):
     def __init__(self, sp_x, sp_y, mp_x, mp_y, ep_x, ep_y):
         '''
         Quadratic Curve defined by two line ({sp_x;sp_y};{mp_x;mp_y}) and
@@ -77,17 +127,29 @@ class QuadraticCurve:
         self.ep_x = ep_x
         self.ep_y = ep_y
 
-    def render(self, mc_interface: MyCobotInterface):
+    def point(self, pos):
+        x = ((1 - pos) ** 2) * self.sp_x + 2 * (1 - pos) * pos * self.mp_x + (pos ** 2) * self.ep_x
+        y = ((1 - pos) ** 2) * self.sp_y + 2 * (1 - pos) * pos * self.mp_y + (pos ** 2) * self.ep_y
+        return x, y
 
-        for i in range(0, 21):
-            i = i / 20
-            x = ((1 - i) ** 2) * self.sp_x + 2 * (1 - i) * i * self.mp_x + (i ** 2) * self.ep_x
-            y = ((1 - i) ** 2) * self.sp_y + 2 * (1 - i) * i * self.mp_y + (i ** 2) * self.ep_y
+    def point_d(self, pos):
+        x = 2 * self.ep_x * pos - 2 * self.sp_x * (1 - pos) + 2 * self.mp_x * (1 - 2 * pos)
+        y = 2 * self.ep_y * pos - 2 * self.sp_y * (1 - pos) + 2 * self.mp_y * (1 - 2 * pos)
+        return x, y
+    def point_d2(self):
+        x = 2*self.ep_x-4*self.mp_x+2*self.sp_x
+        y = 2*self.ep_y-4*self.mp_y+2*self.sp_y
+        return x, y
 
-            mc_interface.draw_to(round(x), round(y))
+    def k_coeff(self, pos):
+        x1, y1 = self.point_d(pos)
+        x2, y2 = self.point_d2()
+        return sqrt((x1 * y2 - x2 * y1) ** 2) / abs((sqrt(x1 ** 2 + y1 ** 2)) ** 3)
 
 
-class ArcCurve:
+
+
+class ArcCurve(BaseObject):
     def __init__(self, sp_x, sp_y, x_r, y_r, rotation, arc, sweep, ep_x, ep_y):
         '''
 
@@ -221,13 +283,54 @@ class ArcCurve:
                 + self.center.imag
         )
         return x, y
+    def point_d(self, pos):
+        if self.sp_x == self.ep_x and self.sp_y == self.ep_y:
+            # This is equivalent of omitting the segment
+            return 0, 0
 
-    def render(self, mc_interface: MyCobotInterface):
+        if self.x_r == 0 or self.y_r == 0:
+            return 0, 0
 
-        for i in range(21):
-            i = i / 20
-            x, y = self.point(i)
-            mc_interface.draw_to(round(x), round(y))
+        angle = radians(self.theta + (self.delta * pos))
+        cosr = cos(radians(self.rotation))
+        sinr = sin(radians(self.rotation))
+        radius = complex(self.x_r, self.y_r) * self.radius_scale
+
+        x = (
+                -cosr * sin(angle) * radius.real
+                - sinr * cos(angle) * radius.imag
+        )
+        y = (
+                -sinr * sin(angle) * radius.real
+                + cosr * cos(angle) * radius.imag
+        )
+        return x, y
+    def point_d2(self, pos):
+        if self.sp_x == self.ep_x and self.sp_y == self.ep_y:
+            return 0, 0
+
+        if self.x_r == 0 or self.y_r == 0:
+            return 0, 0
+
+        angle = radians(self.theta + (self.delta * pos))
+        cosr = cos(radians(self.rotation))
+        sinr = sin(radians(self.rotation))
+        radius = complex(self.x_r, self.y_r) * self.radius_scale
+
+        x = (
+                -cosr * cos(angle) * radius.real
+                + sinr * sin(angle) * radius.imag
+        )
+        y = (
+                -sinr * cos(angle) * radius.real
+                - cosr * sin(angle) * radius.imag
+        )
+        return x, y
+
+    def k_coeff(self, pos):
+        x1, y1 = self.point_d(pos)
+        x2, y2 = self.point_d2(pos)
+        return sqrt((x1*y2-x2*y1)**2)/abs((sqrt(x1**2+y1**2))**3)
 
 
 class Rectangle:

@@ -1,6 +1,6 @@
 from svg.path import *
 from xml.dom import minidom
-import BaseClasses
+from . import BaseClasses
 
 def parse_svg(filepath):
     # read the SVG file
