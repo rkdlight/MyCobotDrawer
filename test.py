@@ -1,3 +1,5 @@
+import time
+
 import matplotlib.pyplot as plt
 from SVGParse.Parse import parse_svg
 from MycobotControl import MyCobotInterface, PolarMyCobotInterface
@@ -6,7 +8,8 @@ from pprint import pprint
 
 class TestInterface:
 
-    def __init__(self, port='COM5', scale=None):
+    def __init__(self, port='COM5', scale=None, speed=50, plt=None):
+
         if scale is None:
             self.scale = [1, 1]
         else:
@@ -17,6 +20,7 @@ class TestInterface:
         self.x_array = []
         self.y_array = []
         self.k_array = []
+        self.plt = plt
 
     def start(self, init_x=100, init_y=0, init_z=100):
         self.init_z = init_z
@@ -31,6 +35,9 @@ class TestInterface:
         self.y_array.append(y)
         self.k_array.append(round(step, 2))
         self.last_coords = [x, y, self.init_z, -180, 0, 0]
+        if self.plt is not None:
+            self.plt.scatter(x, y)
+            self.plt.pause(0.05)
 
 
     def move_to(self, x, y, step=0):
@@ -43,31 +50,33 @@ class TestInterface:
         self.x_array.append(x)
         self.y_array.append(y)
         self.last_coords = coords
+        if self.plt is not None:
+            self.plt.scatter(x, y)
+            self.plt.pause(0.05)
+
+
 
     @property
     def current_coords(self):
-        return self.last_coords[0]/self.scale[0], self.last_coords[1]/self.scale[1]
+        return self.last_coords[0], self.last_coords[1]
 
 
 
 
 if __name__ == '__main__':
-    objects = parse_svg("C:/Users/konop/Downloads/genetic-data-svgrepo-com.svg")
-    interface = PolarMyCobotInterface(port="COM5", scale=[0.10, 0.10])
+    objects = parse_svg("test_curve.svg")
+
+    # Cobot drawing
+    interface = TestInterface(port="COM5", scale=[0.10, 0.10], speed=50, plt=plt)
     interface.start(160, 0, 18)
+    draw_res = 50
+
+    plt.axis([0, 200, 0, 200])
 
     for obj in objects:
         for element in obj:
-
             pprint(element)
-            element.render(interface)
-
-    # plot
-    # fig, ax = plt.subplots()
-    # print(len(interface.x_array))
-    # ax.scatter(interface.x_array, interface.y_array, s=1)
-    # for i, k in enumerate(interface.k_array):
-    #     ax.annotate(k, (interface.x_array[i], interface.y_array[i]))
+            element.render(interface, draw_res)
 
     plt.show()
     # from pymycobot.mycobot import MyCobot

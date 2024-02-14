@@ -1,36 +1,43 @@
 from MycobotControl import MyCobotInterface
 from math import cos, sin, radians, sqrt, degrees, acos
 
+
 class BaseObject:
     def point(self, pos):
         pass
 
+    def length(self):
+        pass
     def k_coeff(self, pos):
         pass
 
-    def render(self, mc_interface):
-        t = 0.01
-        stop = False
+    # def render(self, mc_interface):
+    #     t = 0.01
+    #     stop = False
+    #
+    #     while t <= 1:
+    #
+    #         x, y = self.point(t)
+    #         k = self.k_coeff(t) # ~(0.00001 - 0.04)
+    #
+    #         if k > 0.002:
+    #             step = (1/k)/2500
+    #         else:
+    #             step = 0.2
+    #         t += step
+    #         mc_interface.draw_to(x, y, step)
+    #         if stop:
+    #             break
+    #         if t > 1:
+    #             t = 1
+    #             stop = True
 
-        while t <= 1:
-
+    def render(self, mc_interface, draw_res=50):
+        i_total = int(self.length() / draw_res)
+        for i in range(i_total + 1):
+            t = i/i_total
             x, y = self.point(t)
-            k = self.k_coeff(t) # ~(0.00001 - 0.04)
-
-            if k > 0.002:
-                step = (1/k)/2500
-            else:
-                step = 0.2
-            t += step
-            mc_interface.draw_to(x, y, step)
-            if stop:
-                break
-            if t > 1:
-                t = 1
-                stop = True
-
-
-
+            mc_interface.draw_to(x, y, t)
 
 
 
@@ -39,7 +46,7 @@ class Move(BaseObject):
         self.x = x
         self.y = y
 
-    def render(self, mc_interface: MyCobotInterface):
+    def render(self, mc_interface: MyCobotInterface, draw_res=50):
         mc_interface.move_to(self.x, self.y)
 
 
@@ -50,11 +57,14 @@ class Line(BaseObject):
         self.ep_x = ep_x
         self.ep_y = ep_y
 
-    def render(self, mc_interface):
+    def render(self, mc_interface, draw_res=50):
         mc_interface.draw_to(self.ep_x, self.ep_y)
 
     def k_coeff(self):
         return 0
+
+    def length(self):
+        return sqrt((self.ep_x - self.sp_x) ** 2 + (self.ep_y - self.sp_y) ** 2)
 
 
 class CubicCurve(BaseObject):
@@ -86,6 +96,7 @@ class CubicCurve(BaseObject):
         y = (((1 - pos) ** 3) * self.sp_y + 3 * ((1 - pos) ** 2) * pos * self.ep_y1 +
              + 3 * (1 - pos) * (pos ** 2) * self.sp_y2 + pos ** 3 * self.ep_y)
         return x, y
+
     def point_d(self, pos):
         x = 3 * self.ep_x * pos ** 2 + 3 * self.sp_x2 * (2 * (1 - pos) * pos - pos ** 2) + 3 * self.ep_x1 * (
                 (1 - pos) ** 2 - 2 * (1 - pos) * pos) - 3 * self.sp_x * (1 - pos) ** 2
@@ -95,9 +106,9 @@ class CubicCurve(BaseObject):
 
     def point_d2(self, pos):
         x = 6 * self.ep_x * pos + 6 * self.sp_x * (1 - pos) + 3 * self.sp_x2 * (
-                    2 * (1 - 2 * pos) - 2 * pos) + 3 * self.ep_x1 * (-2 * (1 - pos) - 2 * (1 - 2 * pos))
+                2 * (1 - 2 * pos) - 2 * pos) + 3 * self.ep_x1 * (-2 * (1 - pos) - 2 * (1 - 2 * pos))
         y = 6 * self.ep_y * pos + 6 * self.sp_y * (1 - pos) + 3 * self.sp_y2 * (
-                    2 * (1 - 2 * pos) - 2 * pos) + 3 * self.ep_y1 * (-2 * (1 - pos) - 2 * (1 - 2 * pos))
+                2 * (1 - 2 * pos) - 2 * pos) + 3 * self.ep_y1 * (-2 * (1 - pos) - 2 * (1 - 2 * pos))
         return x, y
 
     def k_coeff(self, pos):
@@ -105,8 +116,15 @@ class CubicCurve(BaseObject):
         x2, y2 = self.point_d2(pos)
         return sqrt((x1 * y2 - x2 * y1) ** 2) / abs((sqrt(x1 ** 2 + y1 ** 2)) ** 3)
 
-
-
+    def length(self):
+        l = 0
+        x0, y0 = self.point(0)
+        for i in range(1, 101):
+            t = i / 100
+            x1, y1 = self.point(t)
+            l += sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2)
+            x0, y0 = x1, y1
+        return l
 
 class QuadraticCurve(BaseObject):
     def __init__(self, sp_x, sp_y, mp_x, mp_y, ep_x, ep_y):
@@ -136,9 +154,10 @@ class QuadraticCurve(BaseObject):
         x = 2 * self.ep_x * pos - 2 * self.sp_x * (1 - pos) + 2 * self.mp_x * (1 - 2 * pos)
         y = 2 * self.ep_y * pos - 2 * self.sp_y * (1 - pos) + 2 * self.mp_y * (1 - 2 * pos)
         return x, y
+
     def point_d2(self):
-        x = 2*self.ep_x-4*self.mp_x+2*self.sp_x
-        y = 2*self.ep_y-4*self.mp_y+2*self.sp_y
+        x = 2 * self.ep_x - 4 * self.mp_x + 2 * self.sp_x
+        y = 2 * self.ep_y - 4 * self.mp_y + 2 * self.sp_y
         return x, y
 
     def k_coeff(self, pos):
@@ -146,6 +165,15 @@ class QuadraticCurve(BaseObject):
         x2, y2 = self.point_d2()
         return sqrt((x1 * y2 - x2 * y1) ** 2) / abs((sqrt(x1 ** 2 + y1 ** 2)) ** 3)
 
+    def length(self):
+        l = 0
+        x0, y0 = self.point(0)
+        for i in range(1, 101):
+            t = i / 100
+            x1, y1 = self.point(t)
+            l += sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2)
+            x0, y0 = x1, y1
+        return l
 
 
 
@@ -283,6 +311,7 @@ class ArcCurve(BaseObject):
                 + self.center.imag
         )
         return x, y
+
     def point_d(self, pos):
         if self.sp_x == self.ep_x and self.sp_y == self.ep_y:
             # This is equivalent of omitting the segment
@@ -305,6 +334,7 @@ class ArcCurve(BaseObject):
                 + cosr * cos(angle) * radius.imag
         )
         return x, y
+
     def point_d2(self, pos):
         if self.sp_x == self.ep_x and self.sp_y == self.ep_y:
             return 0, 0
@@ -330,7 +360,17 @@ class ArcCurve(BaseObject):
     def k_coeff(self, pos):
         x1, y1 = self.point_d(pos)
         x2, y2 = self.point_d2(pos)
-        return sqrt((x1*y2-x2*y1)**2)/abs((sqrt(x1**2+y1**2))**3)
+        return sqrt((x1 * y2 - x2 * y1) ** 2) / abs((sqrt(x1 ** 2 + y1 ** 2)) ** 3)
+
+    def length(self):
+        l = 0
+        x0, y0 = self.point(0)
+        for i in range(1, 101):
+            t = i / 100
+            x1, y1 = self.point(t)
+            l += sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2)
+            x0, y0 = x1, y1
+        return l
 
 
 class Rectangle:

@@ -13,7 +13,8 @@ a5 = 67
 
 class PolarMyCobotInterface:
 
-    def __init__(self, port='COM5', scale=None):
+    def __init__(self, port='COM5', scale=None, speed=50, plt=None):
+        self.speed = speed
         if scale is None:
             self.scale = [1, 1]
         else:
@@ -25,6 +26,7 @@ class PolarMyCobotInterface:
         self.mc.set_fresh_mode(0) # Execute instructions sequentially in the form of a queue.
         time.sleep(0.5)
         self.last_coords = []
+        self.plt = plt
 
     def __get_joints_angels(self, r, z=0):
         CJ4 = sqrt((z + a5) ** 2 + (r - a4) ** 2)
@@ -48,7 +50,7 @@ class PolarMyCobotInterface:
         return degrees(J2), degrees(J3), degrees(J4)
     def start(self, init_x=80, init_y=80, init_z=100):
         self.init_z = init_z
-        self.mc.send_coords([init_x, init_y, init_z, -180, 0, 0], 50)
+        self.mc.send_coords([init_x, init_y, init_z, -180, 0, 0], self.speed)
         self.last_coords = [init_x, init_y, init_z, -180, 0, 0]
         time.sleep(2)
 
@@ -58,8 +60,11 @@ class PolarMyCobotInterface:
         thetha = degrees(atan2(y, x))
         r = sqrt(x**2 + y**2)
         J2, J3, J4 = self.__get_joints_angels(r)
-        self.mc.send_angles([thetha, J2, J3, J4, 0, 0], 50)
+        self.mc.send_angles([thetha, J2, J3, J4, 0, 0], self.speed)
         self.last_coords = [x, y, self.init_z, -180, 0, 0]
+        if self.plt is not None:
+            self.plt.scatter(x, y)
+            self.plt.pause(0.05)
         time.sleep(0.5)
 
     def move_to(self, x, y):
@@ -71,15 +76,18 @@ class PolarMyCobotInterface:
 
         r = sqrt(x ** 2 + y ** 2)
         J2, J3, J4 = self.__get_joints_angels(r)
-        self.mc.send_angles([thetha, J2, J3, J4, 0, 0], 50)
+        self.mc.send_angles([thetha, J2, J3, J4, 0, 0], self.speed)
         self.last_coords = [x, y, self.init_z, -180, 0, 0]
         time.sleep(0.5)
         a5 -= 30
         r = sqrt(x ** 2 + y ** 2)
         J2, J3, J4 = self.__get_joints_angels(r)
-        self.mc.send_angles([thetha, J2, J3, J4, 0, 0], 50)
+        self.mc.send_angles([thetha, J2, J3, J4, 0, 0], self.speed)
         self.last_coords = [x, y, self.init_z, -180, 0, 0]
+        if self.plt is not None:
+            self.plt.scatter(x, y)
+            self.plt.pause(0.05)
         time.sleep(0.5)
     @property
     def current_coords(self):
-        return self.last_coords[0]/self.scale[0], self.last_coords[1]/self.scale[1]
+        return self.last_coords[0], self.last_coords[1]
