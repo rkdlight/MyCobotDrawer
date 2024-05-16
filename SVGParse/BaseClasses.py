@@ -1,4 +1,4 @@
-from MycobotControl import MyCobotInterface
+from MycobotControl import BaseInterface
 from math import cos, sin, radians, sqrt, degrees, acos
 
 
@@ -11,7 +11,7 @@ class BaseObject:
     def k_coeff(self, pos):
         pass
 
-    # def render(self, mc_interface):
+    # def render(self, mc_interface, draw_res=50):
     #     t = 0.01
     #     stop = False
     #
@@ -34,10 +34,13 @@ class BaseObject:
 
     def render(self, mc_interface, draw_res=50):
         i_total = int(self.length() / draw_res)
+        if i_total == 0:
+            return
         for i in range(i_total + 1):
             t = i/i_total
             x, y = self.point(t)
-            mc_interface.draw_to(x, y, t)
+            mc_interface.draw_to(x, y)
+        mc_interface.draw_to(self.ep_x, self.ep_y)
 
 
 
@@ -46,7 +49,7 @@ class Move(BaseObject):
         self.x = x
         self.y = y
 
-    def render(self, mc_interface: MyCobotInterface, draw_res=50):
+    def render(self, mc_interface: BaseInterface, draw_res=50):
         mc_interface.move_to(self.x, self.y)
 
 
@@ -57,8 +60,10 @@ class Line(BaseObject):
         self.ep_x = ep_x
         self.ep_y = ep_y
 
-    def render(self, mc_interface, draw_res=50):
-        mc_interface.draw_to(self.ep_x, self.ep_y)
+    def point(self, pos):
+        x = (self.ep_x-self.sp_x)*pos+self.sp_x
+        y = (self.ep_y-self.sp_y)*pos+self.sp_y
+        return x,y
 
     def k_coeff(self):
         return 0

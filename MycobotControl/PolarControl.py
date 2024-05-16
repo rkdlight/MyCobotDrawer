@@ -1,93 +1,125 @@
-from pymycobot.mycobot import MyCobot
+from pprint import pprint
+
 import time
-from math import atan2
-from math import sqrt, sin, cos, acos, asin, pi, degrees
-
-a1 = 131.56
-a2 = 110.4
-a3 = 96
-a4 = 73.18
-a5 = 67
+import math
+from .BaseControl import BaseInterface
 
 
 
-class PolarMyCobotInterface:
+class PolarInterface(BaseInterface):
 
-    def __init__(self, port='COM5', scale=None, speed=50, plt=None):
-        self.speed = speed
-        if scale is None:
-            self.scale = [1, 1]
+    def __init__(self, port='COM5', scale=None, speed=50, plt=None, up_moving=50):
+        super().__init__(port, scale, speed, plt, up_moving)
+        self.q1, self.q2, self.q3, self.q4, self.q5, self.q6 = 0, 0, 0, 0, 0, 0
+        self.Tm = 30.0
+        self.a1 = 131.56
+        self.L2 = 66.39
+        self.a4 = 73.18
+        self.a5 = 43.6
+        self.a2 = 110.4
+        self.a3 = 96
+        self.PI = math.pi
+
+    def __get_joints_angels(self, x, y, z):
+        
+        r = math.sqrt(x * x + y * y)
+        pravka = math.acos((-self.L2 ** 2 + 2 * r ** 2) / (2 * r * r)) * 180 / self.PI
+
+
+        self.q1 = (self.PI / 2 + (math.atan2(y, x) - (self.PI / 2))) * 180 / self.PI + pravka
+        self.q6 = self.q1
+
+        a13 = math.sqrt((r - self.a4) ** 2 + (self.a1 - (z + self.a5)) ** 2)
+        if a13 == self.a2 + self.a3:
+            self.q3 = 0
+        elif a13 > self.a2 + self.a3:
+            raise "Error; A13 > a2+a3"
+
         else:
-            self.scale = scale
-        self.init_z = 0
-        self.scale = scale
-        self.mc = MyCobot('COM5', 115200)
+            self.q3 = math.acos((-a13 ** 2 + self.a2 ** 2 + self.a3 ** 2) / (2 * self.a2 * self.a3)) - self.PI
+        if self.q3 > 0:
+            raise "Error; q3 > 0"
+
+
+        corner213 = math.acos((-self.a3 ** 2 + self.a2 ** 2 + a13 ** 2) / (2 * self.a2 * a13))
+        if (self.a5 + z) >= self.a1:
+            self.q2 = -(self.PI / 2 - corner213 - math.acos((r - self.a4) / a13))
+        else:
+            self.q2 = -(self.PI / 2 - (corner213 - math.acos((r - self.a4) / a13)))
+        if self.q2 > 0:
+            raise "Error; q2 > 0"
+
+
+        j3ang = self.PI / 2 + self.q2
+        J3x = math.cos(j3ang) * self.a2
+        J3y = math.sin(j3ang) * self.a2 + self.a1
+        a35 = math.sqrt((r - J3x) ** 2 + ((self.a5 + z) - J3y) ** 2)
+        self.q4 = self.PI - math.acos((-a35 ** 2 + self.a3 ** 2 + self.a4 ** 2) / (2 * self.a4 * self.a3))
+
+        if self.q4 < 0:
+            raise "Error; q4 < 0"
+
+        self.q2 *= 180 / self.PI
+        self.q2 = self.q2
+        self.q3 *= 180 / self.PI
+        self.q3 = self.q3
+        self.q4 *= 180 / self.PI
+        self.q4 = self.q4
+        self.q5 = 0
+
+        print("Optimal joint angles:")
+        print("q1: ", self.q1)
+        print("q2: ", self.q2)
+        print("q3: ", self.q3)
+        print("q4: ", self.q4)
+        print("q5: ", self.q5)
+        print("q6: ", self.q6)
+        return list((self.q1, self.q2, self.q3, self.q4, self.q5, self.q6))
+
+
+    def draw_to(self, x, y):
+        x = self.scale[0] * x + self.init_x
+        y = self.scale[1] * y + self.init_y
+
+        angles = self.__get_joints_angels(x, y, self.init_z)
+
+        self.mc.send_angles(angles, self.speed)
+
+        self.last_coords = [x, y, self.init_z, -180, 0, 0]
+
+        if self.plt is not None:
+            self.plt.scatter(x, y)
+            self.plt.pause(0.05)
+
         time.sleep(0.5)
-        self.mc.set_fresh_mode(0) # Execute instructions sequentially in the form of a queue.
-        time.sleep(0.5)
-        self.last_coords = []
-        self.plt = plt
 
-    def __get_joints_angels(self, r, z=0):
-        CJ4 = sqrt((z + a5) ** 2 + (r - a4) ** 2)
-        J2J4 = sqrt((a1 - a5 - z) ** 2 + (r - a4) ** 2)
-        cosJ3 = (a2 ** 2 + a3 ** 2 - J2J4 ** 2) / (2 * a2 * a3)
+    def move_to(self, x, y, step=0):
+        x = self.scale[0] * x + self.init_x
+        y = self.scale[1] * y + self.init_y
+        cords = self.last_coords
+        cords[2] += self.up_moving
 
-        sinCJ2J4 = (r - a4) / J2J4
-        cosJ3J2J4 = (a2 ** 2 + J2J4 ** 2 - a3 ** 2) / (2 * a2 * J2J4)
-        J2 = -(pi - asin(sinCJ2J4) - acos(cosJ3J2J4))
-        j3sqrtreangle = pi / 2 + J2
-        J3x = cos(j3sqrtreangle) * a2
-        J3y = sin(j3sqrtreangle) * a2 + a1
-        J5x = r
-        J5y = a5 + z
-        J3J5 = sqrt((J5x - J3x) ** 2 + (J5y - J3y) ** 2)
-        J3 = -(pi - acos(cosJ3))
-        cosJ3J4J5 = (a3 ** 2 + a4 ** 2 - J3J5 ** 2) / (2 * a3 * a4)
-        J3J4J5 = acos(cosJ3J4J5)
-        J4 = pi - J3J4J5
-
-        return degrees(J2), degrees(J3), degrees(J4)
-    def start(self, init_x=80, init_y=80, init_z=100):
-        self.init_z = init_z
-        self.mc.send_coords([init_x, init_y, init_z, -180, 0, 0], self.speed)
-        self.last_coords = [init_x, init_y, init_z, -180, 0, 0]
+        angles = self.__get_joints_angels(cords[0], cords[1], cords[2])
+        self.mc.send_angles(angles, self.speed)
         time.sleep(2)
 
-    def draw_to(self, x, y, step=0):
-        x = self.scale[0]*x+160
-        y = self.scale[1]*y
-        thetha = degrees(atan2(y, x))
-        r = sqrt(x**2 + y**2)
-        J2, J3, J4 = self.__get_joints_angels(r)
-        self.mc.send_angles([thetha, J2, J3, J4, 0, 0], self.speed)
-        self.last_coords = [x, y, self.init_z, -180, 0, 0]
+        cords[0] = x
+        cords[1] = y
+
+        angles = self.__get_joints_angels(cords[0], cords[1], cords[2])
+        self.mc.send_angles(angles, self.speed)
+        time.sleep(2)
+
+        cords[2] -= self.up_moving
+        angles = self.__get_joints_angels(cords[0], cords[1], cords[2])
+        self.mc.send_angles(angles, self.speed)
+        time.sleep(2)
+
+        self.last_coords = cords
         if self.plt is not None:
             self.plt.scatter(x, y)
             self.plt.pause(0.05)
-        time.sleep(0.5)
+        time.sleep(2)
 
-    def move_to(self, x, y):
-        global a5
-        a5 += 30
-        x = self.scale[0] * x + 160
-        y = self.scale[1] * y
-        thetha = degrees(atan2(y, x))
 
-        r = sqrt(x ** 2 + y ** 2)
-        J2, J3, J4 = self.__get_joints_angels(r)
-        self.mc.send_angles([thetha, J2, J3, J4, 0, 0], self.speed)
-        self.last_coords = [x, y, self.init_z, -180, 0, 0]
-        time.sleep(0.5)
-        a5 -= 30
-        r = sqrt(x ** 2 + y ** 2)
-        J2, J3, J4 = self.__get_joints_angels(r)
-        self.mc.send_angles([thetha, J2, J3, J4, 0, 0], self.speed)
-        self.last_coords = [x, y, self.init_z, -180, 0, 0]
-        if self.plt is not None:
-            self.plt.scatter(x, y)
-            self.plt.pause(0.05)
-        time.sleep(0.5)
-    @property
-    def current_coords(self):
-        return self.last_coords[0], self.last_coords[1]
+        

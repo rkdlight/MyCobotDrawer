@@ -1,10 +1,22 @@
 from math import sqrt, sin, cos, acos, asin, pi, degrees
+import numpy as np
+from pprint import pprint
+import socket
 
 a1 = 131.56
 a2 = 110.4
 a3 = 96
 a4 = 73.18
 a5 = 105
+
+DH = [
+    [0, 131.22, 0, pi / 2],
+    [-pi / 2, 0, -100.4, 0],
+    [0, 0, 96, 0],
+    [-pi / 2, 63.4, 0, pi / 2],
+    [pi / 2, 75.05, 0, -pi / 2],
+    [0, 45.6, 0, 0]
+]
 
 
 def get_joints_angels(r, z=0):
@@ -26,23 +38,66 @@ def get_joints_angels(r, z=0):
     J3J4J5 = acos(cosJ3J4J5)
     J4 = pi - J3J4J5
 
-
     return degrees(J2), degrees(J3), degrees(J4)
 
 
+def dh_matrix(thetha, d, a, alpha):
+    """
+    Создает матрицу преобразования для пары Денавита-Хартенберга.
+
+    :param alpha: угол поворота вокруг z-оси предыдущего звена
+    :param a: перемещение вдоль z-оси предыдущего звена
+    :param d: перемещение вдоль z-оси текущего звена
+    :param theta: угол поворота вокруг z-оси текущего звена
+    :return: матрица преобразования 4x4
+    """
+    cq = cos(thetha)
+    sq = sin(thetha)
+    ca = cos(alpha)
+    sa = sin(alpha)
+    A = [
+        [cq, -ca * sq, sa * sq, a * cq],
+        [sq, ca * cq, -sa * cq, a * sq],
+        [0, sa, ca, d],
+        [0, 0, 0, 1]
+    ]
+    return A
+
+
+def forward_kinematic(Joints):
+    T = []
+    DH_now = DH
+    for i, j in enumerate(Joints):
+        DH_now[i][0] += j
+    for i, dh in enumerate(DH_now):
+        A = dh_matrix(*dh)
+        if i == 0:
+            T = A
+            continue
+        T = np.matmul(T, A)
+
+
+
+    return T[0][3], T[1][3], T[2][3], T[:3, :3]
+
+
+# J = [pi, pi / 2, -pi / 2, pi / 2, 0, 0]
+J_start = [-pi/2, -pi/2, 0, pi/2, 0, 0]
+
+J = [0, 0, 0, 0, 0, 0]
 if __name__ == '__main__':
-    from pymycobot.mycobot import MyCobot
-    import time
-    mc = MyCobot('COM5', 115200)
-    time.sleep(0.5)
-    mc.set_fresh_mode(0)
-    time.sleep(0.5)
-    J2, J3, J4 = get_joints_angels(130)
-    print(J2, J3, J4)
 
-    #
+    j_degrees = list(map(str, map(degrees, J)))
 
-    mc.sync_send_angles([0, J2, J3, J4, 0, 0], 100)
-    # J2, J3, J4 = get_joints_angels(250)
-    mc.sync_send_angles([0,0, 0, 0, 0, 0], 100)
-    time.sleep(2)
+    x, y, z, R = forward_kinematic(J)
+
+    print(x, y, z, R)
+
+    HOST = "127.0.0.1"
+    PORT = 5658
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((HOST, PORT))
+
+        message = ".ModRobot:" + ",".join(j_degrees)+",0"
+        s.sendall(message.encode("utf-8"))
