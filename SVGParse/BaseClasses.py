@@ -3,36 +3,30 @@ from math import cos, sin, radians, sqrt, degrees, acos
 
 
 class BaseObject:
-    def point(self, pos):
+    def point(self, pos: float):
+        # Args:
+        #   pos - from 0 to 1, parameter for Parametric equation
+        # returns:
+        #   (x,y) - coordinates of the curve point for a given parameter
         pass
 
     def length(self):
+        # returns:
+        #   length of the curve
         pass
     def k_coeff(self, pos):
+        # Args:
+        #   pos - from 0 to 1, parameter for Parametric equation
+        # returns:
+        #   k - curvature coefficient
         pass
 
-    # def render(self, mc_interface, draw_res=50):
-    #     t = 0.01
-    #     stop = False
-    #
-    #     while t <= 1:
-    #
-    #         x, y = self.point(t)
-    #         k = self.k_coeff(t) # ~(0.00001 - 0.04)
-    #
-    #         if k > 0.002:
-    #             step = (1/k)/2500
-    #         else:
-    #             step = 0.2
-    #         t += step
-    #         mc_interface.draw_to(x, y, step)
-    #         if stop:
-    #             break
-    #         if t > 1:
-    #             t = 1
-    #             stop = True
-
     def render(self, mc_interface, draw_res=50):
+        # function for sending commands to draw a given curve to the robot
+        # Args:
+        #   mc_interface - robot communication interface
+        #   draw_res - this parameter determines how accurately the curve will be drawn.
+        #   The larger it is, the more accurate, but the drawing process will be slower.
         i_total = int(self.length() / draw_res)
         if i_total == 0:
             return

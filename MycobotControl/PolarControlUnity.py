@@ -1,12 +1,10 @@
-from pprint import pprint
-
 import time
 import math
-from .BaseControl import BaseInterface
+from .BaseControlUnity import BaseInterfaceUnity
 
 
 
-class PolarInterface(BaseInterface):
+class PolarInterfaceUnity(BaseInterfaceUnity):
 
     def __init__(self, port='COM5', scale=None, speed=50, plt=None, up_moving=50):
         super().__init__(port, scale, speed, plt, up_moving)
@@ -18,12 +16,12 @@ class PolarInterface(BaseInterface):
         self.a5 = 43.6
         self.a2 = 110.4
         self.a3 = 96
-        self.PI = math.pi
 
     def __get_joints_angels(self, x, y, z):
         
         r = math.sqrt(x * x + y * y)
         pravka = math.acos((-self.L2 ** 2 + 2 * r ** 2) / (2 * r * r)) * 180 / self.PI
+
 
         self.q1 = (self.PI / 2 + (math.atan2(y, x) - (self.PI / 2))) * 180 / self.PI + pravka
         self.q6 = self.q1
@@ -33,10 +31,12 @@ class PolarInterface(BaseInterface):
             self.q3 = 0
         elif a13 > self.a2 + self.a3:
             raise "Error; A13 > a2+a3"
+
         else:
             self.q3 = math.acos((-a13 ** 2 + self.a2 ** 2 + self.a3 ** 2) / (2 * self.a2 * self.a3)) - self.PI
         if self.q3 > 0:
             raise "Error; q3 > 0"
+
 
         corner213 = math.acos((-self.a3 ** 2 + self.a2 ** 2 + a13 ** 2) / (2 * self.a2 * a13))
         if (self.a5 + z) >= self.a1:
@@ -45,6 +45,7 @@ class PolarInterface(BaseInterface):
             self.q2 = -(self.PI / 2 - (corner213 - math.acos((r - self.a4) / a13)))
         if self.q2 > 0:
             raise "Error; q2 > 0"
+
 
         j3ang = self.PI / 2 + self.q2
         J3x = math.cos(j3ang) * self.a2
@@ -63,25 +64,19 @@ class PolarInterface(BaseInterface):
         self.q4 = self.q4
         self.q5 = 0
 
-        print("Optimal joint angles:")
-        print("q1: ", self.q1)
-        print("q2: ", self.q2)
-        print("q3: ", self.q3)
-        print("q4: ", self.q4)
-        print("q5: ", self.q5)
-        print("q6: ", self.q6)
-        return list((self.q1, self.q2, self.q3, self.q4, self.q5, self.q6))
+        result = [self.q1, -self.q2, -self.q3, -self.q4, self.q5, self.q6]
 
+        return list(map(lambda x: "{:.2f}".format(x), result))
 
     def draw_to(self, x, y):
         x = self.scale[0] * x + self.init_x
         y = self.scale[1] * y + self.init_y
 
         angles = self.__get_joints_angels(x, y, self.init_z)
+        message = ".ModRobot:" + ",".join(angles)
+        self.s.sendall(message.encode("utf-8"))
 
-        self.mc.send_angles(angles, self.speed)
-
-        self.last_coords = [x, y, self.init_z, -180, 0, 0]
+        self.last_coords = [x, y, self.init_z]
 
         if self.plt is not None:
             self.plt.scatter(x, y)
@@ -96,19 +91,23 @@ class PolarInterface(BaseInterface):
         cords[2] += self.up_moving
 
         angles = self.__get_joints_angels(cords[0], cords[1], cords[2])
-        self.mc.send_angles(angles, self.speed)
+
+        message = ".ModRobot:" + ",".join(angles)
+        self.s.sendall(message.encode("utf-8"))
         time.sleep(2)
 
         cords[0] = x
         cords[1] = y
 
         angles = self.__get_joints_angels(cords[0], cords[1], cords[2])
-        self.mc.send_angles(angles, self.speed)
+        message = ".ModRobot:" + ",".join(angles)
+        self.s.sendall(message.encode("utf-8"))
         time.sleep(2)
 
         cords[2] -= self.up_moving
         angles = self.__get_joints_angels(cords[0], cords[1], cords[2])
-        self.mc.send_angles(angles, self.speed)
+        message = ".ModRobot:" + ",".join(angles)
+        self.s.sendall(message.encode("utf-8"))
         time.sleep(2)
 
         self.last_coords = cords
@@ -116,6 +115,8 @@ class PolarInterface(BaseInterface):
             self.plt.scatter(x, y)
             self.plt.pause(0.05)
         time.sleep(2)
+
+
 
 
         

@@ -7,7 +7,6 @@ def parse_svg(filepath):
     doc = minidom.parse(filepath)
     path_strings = [path.getAttribute('d') for path in doc.getElementsByTagName('path')]
     doc.unlink()
-
     image_objects = []
     for path_string in path_strings:
         path = parse_path(path_string)
@@ -41,7 +40,6 @@ def parse_svg(filepath):
                     BaseClasses.ArcCurve(element.start.real, element.start.imag, element.radius.real, element.radius.imag,
                                          element.rotation, element.arc, element.sweep, element.end.real, element.end.imag)
                 )
-
         image_objects.append(path_objects)
 
     return image_objects
