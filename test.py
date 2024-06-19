@@ -1,6 +1,5 @@
 import time
 
-import matplotlib.pyplot as plt
 from SVGParse.Parse import parse_svg
 from MycobotControl import NativeInterface, PolarInterface, XinInterface, KeyboardControl, XinInterfaceUnity, PolarInterfaceUnity
 from pprint import pprint
@@ -37,12 +36,14 @@ def rectangle_points(interface, width, height):
 
 if __name__ == '__main__':
 
-    interface = XinInterface(scale=[0.08, 0.08])
+    interface = XinInterface(port="COM3", scale=[0.08, 0.08], speed=90)
     interface.setup()
-    # interface.init_z -= 79
+    interface.init_z -= 79
     time.sleep(10)
     objects = parse_svg("picture-svgrepo-com.svg")
     for obj in objects:
         for element in obj:
             pprint(element)
+
+
             element.render(interface, 20)

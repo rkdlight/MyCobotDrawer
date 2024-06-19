@@ -13,7 +13,7 @@ class BaseInterface:
         else:
             self.scale = scale
         self.init_z = 0
-        self.mc = MyCobot('COM5', 115200)
+        self.mc = MyCobot(port, 115200)
         time.sleep(0.5)
         self.mc.set_fresh_mode(0) # Execute instructions sequentially in the form of a queue.
         time.sleep(0.5)
