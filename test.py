@@ -36,14 +36,20 @@ def rectangle_points(interface, width, height):
 
 if __name__ == '__main__':
 
-    interface = XinInterface(port="COM3", scale=[0.08, 0.08], speed=90)
+    ### Для того чтобы узнать какой порт использовать
+    # import serial.tools.list_ports
+    #
+    # ports = serial.tools.list_ports.comports()
+    #
+    # for port in ports:
+    #     print(port.device)
+
+    interface = XinInterface(port="COM5", scale=[0.08, 0.08], speed=90)
     interface.setup()
-    interface.init_z -= 79
-    time.sleep(10)
-    objects = parse_svg("picture-svgrepo-com.svg")
+    # interface.init_z -= 79
+    # time.sleep(10)
+    objects = parse_svg("svg_images/picture-svgrepo-com.svg")
     for obj in objects:
         for element in obj:
             pprint(element)
-
-
             element.render(interface, 20)

@@ -80,7 +80,7 @@ class XinInterfaceUnity(BaseInterfaceUnity):
 
     def draw_to(self, x, y):
         x = self.scale[0] * x + self.init_x
-        y = self.scale[1] * y + self.init_y
+        y = -self.scale[1] * y + self.init_y
 
         angles = self.__get_joints_angels(x, y, self.init_z)
         message = ".ModRobot:" + ",".join(angles)
@@ -96,7 +96,7 @@ class XinInterfaceUnity(BaseInterfaceUnity):
 
     def move_to(self, x, y, step=0):
         x = self.scale[0] * x + self.init_x
-        y = self.scale[1] * y + self.init_y
+        y = -self.scale[1] * y + self.init_y
         cords = self.last_coords
         cords[2] += self.up_moving
 
