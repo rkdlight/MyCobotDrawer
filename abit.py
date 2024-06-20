@@ -1,0 +1,41 @@
+from pymycobot.mycobot import MyCobot
+from time import sleep
+
+
+mc = MyCobot("COM4", 115200)
+sleep(0.5)
+mc.set_fresh_mode(0)
+speed = 40
+sleep(0.5)
+s = 2
+while True:
+    mc.send_angles([0, 0, 0, 0, 0, 0], speed)
+    sleep(s)
+    mc.send_angles([30, 40, -130, 90, 0, 0], speed)
+    sleep(s)
+    mc.send_angles([30, 0, 0, 0, 0, 0], speed)
+    sleep(s)
+    mc.send_angles([30, -40, 130, -90, 0, 0], speed)
+    sleep(s)
+    mc.send_angles([30, -40, 130, -90, -90, 0], speed)
+    sleep(s)
+    mc.send_angles([30, -40, 130, -45, -90, 0], 60)
+    sleep(1)
+    mc.send_angles([30, -40, 130, -135, -90, 0], 60)
+    sleep(1)
+    mc.send_angles([30, -40, 130, -45, -90, 0], 60)
+    sleep(1)
+    mc.send_angles([160, 0, 0, 0, -90, 0], 30)
+    sleep(3)
+    mc.send_angles([160, 90, -150, 60, -90, 0], 50)
+    sleep(s)
+    mc.send_angles([160, -90, 150, -60, -90, 0], 50)
+    sleep(s)
+    mc.send_angles([-160, -90, 150, -60, -90, 0], 30)
+    sleep(3)
+    mc.send_angles([-90, 0, 0, 0, 0, 0], 30)
+    sleep(4)
+    mc.send_angles([-90, 0, 0, -60, 0, 0], speed)
+    sleep(4)
+    mc.send_angles([-90, 0, 0, 0, 0, 0], speed)
+    sleep(60)
